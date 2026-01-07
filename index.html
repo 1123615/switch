@@ -108,31 +108,31 @@
     
     function formatData(data) {
   creatures = { "魚": {}, "昆蟲": {}, "海產": {}, "水果": {}, "花卉": {} };
-  
+
   data.forEach(row => {
+    // 優先檢查 row.Seasons，如果沒有就找 row.Season (相容單複數)
+    const rawSeasons = row.Seasons || row.Season;
     const type = row.Type;
     const name = row.Name;
-    if (!type || !name) return; // 防呆：跳過空行
+
+    if (!type || !name) return; // 跳過空行
 
     const basePrice = parseFloat(row.Price) || 0;
     let finalPrice = (type === "魚" || type === "昆蟲") ? Math.floor(basePrice * 1.5) : basePrice;
 
-    // --- 修正點：使用 trim() 移除空白，並支援中英文逗號 ---
+    // 解析季節：支援中英文逗號，並自動切掉空格
     let seasonList = [];
-    if (row.Seasons) {
-      // 同時支援英文逗號與中文逗號拆分
-      seasonList = row.Seasons.toString().replace(/，/g, ',').split(',').map(s => s.trim());
+    if (rawSeasons) {
+      seasonList = rawSeasons.toString().replace(/，/g, ',').split(',').map(s => s.trim());
     }
 
+    // 解析時間
     let timeRanges = [];
     if (row.Times) {
       row.Times.toString().replace(/，/g, ',').split(',').forEach(group => {
         const parts = group.trim().split('-');
         if (parts.length === 2) {
-          timeRanges.push({
-            start: parseInt(parts[0]),
-            end: parseInt(parts[1])
-          });
+          timeRanges.push({ start: parseInt(parts[0]), end: parseInt(parts[1]) });
         }
       });
     } else {
@@ -146,6 +146,7 @@
       location: row.Location || "全部"
     };
   });
+}
     }  /* ====== 介面操作 ====== */
     function initSeasonSelect() {
       const seasonSelect = document.getElementById("seasonSelect");
