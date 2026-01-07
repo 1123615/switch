@@ -106,27 +106,37 @@
     };
 
     
-    function formatData(data) {
+   function formatData(data) {
   creatures = { "魚": {}, "昆蟲": {}, "海產": {}, "水果": {}, "花卉": {} };
-
+  
   data.forEach(row => {
-    // 優先檢查 row.Seasons，如果沒有就找 row.Season (相容單複數)
-    const rawSeasons = row.Seasons || row.Season;
     const type = row.Type;
     const name = row.Name;
+    // 相容單複數標題
+    const rawSeasons = row.Seasons || row.Season; 
+    const rawLocation = row.Location;
 
-    if (!type || !name) return; // 跳過空行
+    if (!type || !name) return;
 
     const basePrice = parseFloat(row.Price) || 0;
     let finalPrice = (type === "魚" || type === "昆蟲") ? Math.floor(basePrice * 1.5) : basePrice;
 
-    // 解析季節：支援中英文逗號，並自動切掉空格
+    // --- 1. 地點處理：轉為陣列 ---
+    let locationList = [];
+    if (rawLocation) {
+      // 支援中英文逗號拆分，並去除多餘空白
+      locationList = rawLocation.toString().replace(/，/g, ',').split(',').map(l => l.trim());
+    } else {
+      locationList = ["全部"];
+    }
+
+    // --- 2. 季節處理：轉為陣列 ---
     let seasonList = [];
     if (rawSeasons) {
       seasonList = rawSeasons.toString().replace(/，/g, ',').split(',').map(s => s.trim());
     }
 
-    // 解析時間
+    // --- 3. 時間處理 ---
     let timeRanges = [];
     if (row.Times) {
       row.Times.toString().replace(/，/g, ',').split(',').forEach(group => {
@@ -143,9 +153,44 @@
       price: finalPrice,
       seasons: seasonList,
       times: timeRanges,
-      location: row.Location || "全部"
+      location: locationList // 現在這裡是一個陣列了
     };
   });
+}
+
+function updateCreatureOptions() {
+  const type = document.getElementById("typeSelect").value;
+  const season = document.getElementById("seasonSelect").value;
+  const location = document.getElementById("locationSelect").value;
+  const select = document.getElementById("creatureSelect");
+  
+  select.innerHTML = "";
+  if (!creatures[type]) return;
+
+  for (let name in creatures[type]) {
+    const d = creatures[type][name];
+    let ok = true;
+    
+    // 季節篩選
+    if (d.seasons.length > 0 && !d.seasons.includes(season)) ok = false;
+    
+    // 時間篩選
+    if (d.times.length > 0 && !isNowInTimeRanges(d.times)) ok = false;
+    
+    // --- 4. 地點篩選：改為判斷是否包含 ---
+    if (location !== "全部") {
+      // 如果生物的地點清單不包含「全部」，且也不包含目前選擇的地點，則不顯示
+      const isIncluded = d.location.includes("全部") || d.location.includes(location);
+      if (!isIncluded) ok = false;
+    }
+    
+    if (ok) {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = `${name}（${d.price}）`;
+      select.appendChild(opt);
+    }
+  }
 }
     }  /* ====== 介面操作 ====== */
     function initSeasonSelect() {
