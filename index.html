@@ -94,7 +94,7 @@
     window.onload = async function() {
       try {
         // 1. 抓取檔案 (假設檔案放在同一個資料夾下)
-        const response = await fetch('data.xlsx');
+        const response = await fetch('deta.xlsx');
         const arrayBuffer = await response.arrayBuffer();
         // 2. 解析 Excel 資料
         const workbook = XLSX.read(arrayBuffer);
