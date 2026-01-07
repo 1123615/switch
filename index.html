@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <title>Untitled</title>
+    <link rel="stylesheet" href="./style.css">
+
+  </head>
+    
+  <body>
+  <html lang="zh-TW">
+
+<head>
+  <meta charset="UTF-8">
+  <title>動物森友會 捕捉價值判斷器</title>
+
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+</head>
+
+<body>
+
+  <h1>🎮 動物森友會 捕捉價值判斷器</h1>
+
+  <p>目前時間：<strong id="nowTime"></strong></p>
+
+  <p>季節：
+    <select id="seasonSelect" onchange="updateCreatureOptions()"></select>
+  </p>
+
+  <p>生物類型：
+    <select id="typeSelect" onchange="updateCreatureOptions()">
+      <option value="魚">魚</option>
+      <option value="昆蟲">昆蟲</option>
+      <option value="海產">海產</option>
+      <option value="水果">水果</option>
+      <option value="花卉">花卉</option>
+    </select>
+  </p>
+
+  <p>地點（僅魚類）：
+    <select id="locationSelect" onchange="updateCreatureOptions()">
+      <option value="全部">全部</option>
+      <option value="河流">河流(包含懸崖、出海口)</option>
+      <option value="海洋">海洋(包含碼頭、出海口)</option>
+      <option value="池塘">池塘</option>
+    </select>
+  </p>
+
+  <p>選擇項目：
+    <select id="creatureSelect"></select>
+    <button onclick="addCreature()">加入</button>
+  </p>
+
+  <div class="box">
+    <h3>🎒 捕捉清單</h3>
+    <ul id="caughtList"></ul>
+  </div>
+
+  <button onclick="findCheapest()">🔻 顯示最低價</button>
+
+  <div id="result" class="box"></div>
+
+  <script>
+    /* ====== 季節自動 ====== */
+    const month = new Date().getMonth() + 1;
+    const seasonMap = {
+      春: [3, 4, 5],
+      夏: [6, 7, 8],
+      秋: [9, 10, 11],
+      冬: [12, 1, 2]
+    };
+    let currentSeason = "春";
+    for (let s in seasonMap) {
+      if (seasonMap[s].includes(month)) currentSeason = s;
+    }
+    /* ====== 現在時間 ====== */
+    const nowHour = new Date().getHours();
+    document.getElementById("nowTime").textContent = `${nowHour}:00`;
+    /* ====== 時段判斷 ====== */
+    function isNowInTimeRanges(ranges) {
+      return ranges.some(r => {
+        if (r.start < r.end) {
+          return nowHour >= r.start && nowHour < r.end;
+        } else {
+          return nowHour >= r.start || nowHour < r.end;
+        }
+      });
+    }
+    /* ====== 資料庫 ====== */
+    let creatures = {}; // 先定義空物件，等讀取完 Excel 後填入
+    // 當網頁載入時，自動抓取 Excel
+    window.onload = async function() {
+      try {
+        // 1. 抓取檔案 (假設檔案放在同一個資料夾下)
+        const response = await fetch('data.xlsx');
+        const arrayBuffer = await response.arrayBuffer();
+        // 2. 解析 Excel 資料
+        const workbook = XLSX.read(arrayBuffer);
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        // 3. 將平鋪的 Excel 資料轉換為你原本的 Object 格式
+        formatData(jsonData);
+        // 4. 資料準備好後，更新選單
+        updateCreatureOptions();
+      } catch (error) {
+        console.error("讀取 Excel 失敗：", error);
+        alert("無法載入資料表，請檢查 data.xlsx 是否存在");
+      }
+    };
+    // 格式轉換邏輯
+    function formatData(data) {
+      // 初始化分類
+      creatures = {
+        "魚": {},
+        "昆蟲": {},
+        "海產": {},
+        "水果": {},
+        "花卉": {}
+      };
+      data.forEach(row => {
+        const type = row.Type;
+        const name = row.Name;
+        const basePrice = parseFloat(row.Price) || 0; // 取得 Excel 裡的原價
+        // --- 核心價格計算邏輯 ---
+        let finalPrice = basePrice;
+        // 只有「魚」和「昆蟲」有 1.5 倍的高價收購（俞司廷與龍克斯）
+        // 其他類別（如海產、水果、花卉）則維持原價
+        if (type === "魚" || type === "昆蟲") {
+          finalPrice = Math.floor(basePrice * 1.5); // 使用 Math.floor 確保跟遊戲一樣無條件捨去小數點
+        }
+        // --- 時段處理邏輯 (支援多時段) ---
+        let timeRanges = [];
+        if (row.Times) {
+          const groups = row.Times.toString().split(',');
+          groups.forEach(group => {
+            const parts = group.trim().split('-');
+            if (parts.length === 2) {
+              timeRanges.push({
+                start: parseInt(parts[0]),
+                end: parseInt(parts[1])
+              });
+            }
+          });
+        } else {
+          timeRanges.push({
+            start: 0,
+            end: 24
+          });
+        }
+        // 存入資料庫
+        creatures[type][name] = {
+          price: finalPrice, // 這裡存的已經是計算後的價格
+          seasons: row.Seasons ? row.Seasons.toString().split(',') : [],
+          times: timeRanges,
+          location: row.Location || "全部"
+        };
+      });
+    }
+    // 因為 formatData 已經算好了，updateCreatureOptions 也要簡化：
+    function updateCreatureOptions() {
+      const type = typeSelect.value;
+      const season = seasonSelect.value;
+      const location = locationSelect.value;
+      creatureSelect.innerHTML = "";
+      for (let name in creatures[type]) {
+        const d = creatures[type][name];
+        let ok = true;
+        if (d.seasons.length > 0 && !d.seasons.includes(season)) ok = false;
+        if (d.times.length > 0 && !isNowInTimeRanges(d.times)) ok = false;
+        if (d.location !== "全部" && location !== "全部" && d.location !== location) ok = false;
+        if (ok) {
+          const opt = document.createElement("option");
+          opt.value = name;
+          // 直接顯示 d.price 即可，不用再乘以 1.5
+          opt.textContent = `${name}（${d.price}）`;
+          creatureSelect.appendChild(opt);
+        }
+      }
+    }
+    // 加入清單的函式也記得要改掉 * 1.5
+    function addCreature() {
+      const type = typeSelect.value;
+      const name = creatureSelect.value;
+      if (!name) return;
+      const data = creatures[type][name];
+      caught.push({
+        name: name,
+        price: data.price // 直接使用存好的價格
+      });
+      render();
+    }
+    const caught = [];
+    /* ====== 初始化季節 ====== */
+    ["春", "夏", "秋", "冬"].forEach(s => {
+      const opt = document.createElement("option");
+      opt.value = s;
+      opt.textContent = s;
+      if (s === currentSeason) opt.selected = true;
+      seasonSelect.appendChild(opt);
+    });
+    updateCreatureOptions();
+    /* ====== 更新下拉 ====== */
+    function updateCreatureOptions() {
+      const type = typeSelect.value;
+      const season = seasonSelect.value;
+      const location = locationSelect.value;
+      creatureSelect.innerHTML = "";
+      for (let name in creatures[type]) {
+        const d = creatures[type][name];
+        let ok = true;
+        if (d.seasons && !d.seasons.includes(season)) ok = false;
+        if (d.times && !isNowInTimeRanges(d.times)) ok = false;
+        if (d.location && location !== "全部" && d.location !== location) ok = false;
+        if (ok) {
+          const price = Math.floor(d.price * 1.5);
+          const opt = document.createElement("option");
+          opt.value = name;
+          opt.textContent = `${name}（${price}）`;
+          creatureSelect.appendChild(opt);
+        }
+      }
+    }
+    /* ====== 加入 / 顯示 ====== */
+    function addCreature() {
+      const type = typeSelect.value;
+      const name = creatureSelect.value;
+      const price = Math.floor(creatures[type][name].price * 1.5);
+      caught.push({
+        name,
+        price
+      });
+      render();
+    }
+
+    function render() {
+      caughtList.innerHTML = "";
+      caught.forEach((i, idx) => {
+        const li = document.createElement("li");
+        li.textContent = `${i.name}（${i.price}）`;
+        const b = document.createElement("button");
+        b.textContent = "❌";
+        b.onclick = () => {
+          caught.splice(idx, 1);
+          render();
+        };
+        li.appendChild(b);
+        caughtList.appendChild(li);
+      });
+    }
+    /* ====== 最低價 ====== */
+    function findCheapest() {
+      if (!caught.length) {
+        result.innerHTML = "<p>尚無資料</p>";
+        return;
+      }
+      const min = Math.min(...caught.map(i => i.price));
+      const list = caught.filter(i => i.price === min);
+      let html = "<h3 class='sell'>🔻 建議先賣</h3><ul>";
+      list.forEach(i => html += `<li>${i.name}（${i.price}）</li>`);
+      html += "</ul>";
+      result.innerHTML = html;
+    }
+  </script>
+
+</body>
+
+</html>
+    
+  </body>
+  
+</html>

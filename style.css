@@ -1,0 +1,33 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f8f3;
+  padding: 20px;
+}
+h1 {
+  color: #2f6f4e;
+}
+select,
+button {
+  font-size: 16px;
+  padding: 8px;
+  margin-top: 6px;
+}
+button {
+  background: #2f6f4e;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+button:hover {
+  background: #24583e;
+}
+.box {
+  margin-top: 20px;
+  padding: 15px;
+  background: white;
+  border-radius: 8px;
+}
+.sell {
+  color: #b00020;
+  font-weight: bold;
+}
