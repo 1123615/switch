@@ -105,49 +105,48 @@
       }
     };
 
+    
     function formatData(data) {
-      creatures = {
-        "魚": {},
-        "昆蟲": {},
-        "海產": {},
-        "水果": {},
-        "花卉": {}
-      };
-      data.forEach(row => {
-        const type = row.Type;
-        const name = row.Name;
-        const basePrice = parseFloat(row.Price) || 0;
-        // 計算 1.5 倍收購價
-        let finalPrice = basePrice;
-        if (type === "魚" || type === "昆蟲") {
-          finalPrice = Math.floor(basePrice * 1.5);
-        }
-        let timeRanges = [];
-        if (row.Times) {
-          row.Times.toString().split(',').forEach(group => {
-            const parts = group.trim().split('-');
-            if (parts.length === 2) {
-              timeRanges.push({
-                start: parseInt(parts[0]),
-                end: parseInt(parts[1])
-              });
-            }
-          });
-        } else {
-          timeRanges.push({
-            start: 0,
-            end: 24
-          });
-        }
-        creatures[type][name] = {
-          price: finalPrice,
-          seasons: row.Seasons ? row.Seasons.toString().split(',') : [],
-          times: timeRanges,
-          location: row.Location || "全部"
-        };
-      });
+  creatures = { "魚": {}, "昆蟲": {}, "海產": {}, "水果": {}, "花卉": {} };
+  
+  data.forEach(row => {
+    const type = row.Type;
+    const name = row.Name;
+    if (!type || !name) return; // 防呆：跳過空行
+
+    const basePrice = parseFloat(row.Price) || 0;
+    let finalPrice = (type === "魚" || type === "昆蟲") ? Math.floor(basePrice * 1.5) : basePrice;
+
+    // --- 修正點：使用 trim() 移除空白，並支援中英文逗號 ---
+    let seasonList = [];
+    if (row.Seasons) {
+      // 同時支援英文逗號與中文逗號拆分
+      seasonList = row.Seasons.toString().replace(/，/g, ',').split(',').map(s => s.trim());
     }
-    /* ====== 介面操作 ====== */
+
+    let timeRanges = [];
+    if (row.Times) {
+      row.Times.toString().replace(/，/g, ',').split(',').forEach(group => {
+        const parts = group.trim().split('-');
+        if (parts.length === 2) {
+          timeRanges.push({
+            start: parseInt(parts[0]),
+            end: parseInt(parts[1])
+          });
+        }
+      });
+    } else {
+      timeRanges.push({ start: 0, end: 24 });
+    }
+
+    creatures[type][name] = {
+      price: finalPrice,
+      seasons: seasonList,
+      times: timeRanges,
+      location: row.Location || "全部"
+    };
+  });
+    }  /* ====== 介面操作 ====== */
     function initSeasonSelect() {
       const seasonSelect = document.getElementById("seasonSelect");
       ["春", "夏", "秋", "冬"].forEach(s => {
