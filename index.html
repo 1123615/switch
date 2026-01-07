@@ -1,22 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
-
-  <head>
-    <meta charset="UTF-8">
-    <title>Untitled</title>
-    <link rel="stylesheet" href="./style.css">
-
-  </head>
-    
-  <body>
-  <html lang="zh-TW">
+<html lang="zh-TW">
 
 <head>
   <meta charset="UTF-8">
   <title>動物森友會 捕捉價值判斷器</title>
-
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-
 </head>
 
 <body>
@@ -50,116 +38,118 @@
 
   <p>選擇項目：
     <select id="creatureSelect"></select>
-    <button onclick="addCreature()">加入</button>
+    <button onclick="addCreature()">加入背包</button>
   </p>
 
   <div class="box">
-    <h3>🎒 捕捉清單</h3>
+    <h3>🎒 捕捉清單 (背包)</h3>
     <ul id="caughtList"></ul>
   </div>
 
-  <button onclick="findCheapest()">🔻 顯示最低價</button>
+  <button onclick="findCheapest()" style="margin-top: 20px;">🔻 計算結果：該賣誰？</button>
 
   <div id="result" class="box"></div>
 
   <script>
-    /* ====== 季節與時間初始化 ====== */
+    /* ====== 全域變數設定 ====== */
+    let creatures = {};
+    const caught = [];
+    
+    // 初始化季節與時間
     const month = new Date().getMonth() + 1;
-    const seasonMap = {
-      春: [3, 4, 5],
-      夏: [6, 7, 8],
-      秋: [9, 10, 11],
-      冬: [12, 1, 2]
-    };
+    const seasonMap = { 春: [3, 4, 5], 夏: [6, 7, 8], 秋: [9, 10, 11], 冬: [12, 1, 2] };
     let currentSeason = "春";
     for (let s in seasonMap) {
       if (seasonMap[s].includes(month)) currentSeason = s;
     }
+    
     const nowHour = new Date().getHours();
     document.getElementById("nowTime").textContent = `${nowHour}:00`;
 
+    // 時間判斷函式
     function isNowInTimeRanges(ranges) {
       return ranges.some(r => {
         if (r.start < r.end) return nowHour >= r.start && nowHour < r.end;
         else return nowHour >= r.start || nowHour < r.end; // 跨深夜處理
       });
     }
-    /* ====== 資料庫與 Excel 讀取 ====== */
-    let creatures = {};
-    const caught = [];
+
+    /* ====== 程式進入點：載入網頁時執行 ====== */
     window.onload = async function() {
       try {
-        // 請確保檔案名稱為 data.xlsx
+        // 讀取 Excel 檔案
         const response = await fetch('data.xlsx');
         if (!response.ok) throw new Error("找不到 Excel 檔案");
+        
         const arrayBuffer = await response.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer);
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+        // 整理數據
         formatData(jsonData);
-        initSeasonSelect(); // 初始化季節選單
-        updateCreatureOptions(); // 數據加載完後第一次更新選單
+        
+        // 初始化介面
+        initSeasonSelect();
+        updateCreatureOptions();
       } catch (error) {
         console.error("讀取失敗：", error);
-        alert("無法載入 data.xlsx，請檢查檔案名稱是否正確。");
+        alert("無法載入 data.xlsx，請確認檔案名稱正確且與網頁在同一資料夾。");
       }
     };
 
-    
-   function formatData(data) {
-  creatures = { "魚": {}, "昆蟲": {}, "海產": {}, "水果": {}, "花卉": {} };
-  
-  data.forEach(row => {
-    const type = row.Type;
-    const name = row.Name;
-    // 相容單複數標題
-    const rawSeasons = row.Seasons || row.Season; 
-    const rawLocation = row.Location;
+    /* ====== 核心資料處理函式 ====== */
+    function formatData(data) {
+      creatures = { "魚": {}, "昆蟲": {}, "海產": {}, "水果": {}, "花卉": {} };
+      
+      data.forEach(row => {
+        const type = row.Type;
+        const name = row.Name;
+        const rawSeasons = row.Seasons || row.Season; 
+        const rawLocation = row.Location;
 
-    if (!type || !name) return;
+        if (!type || !name) return;
 
-    const basePrice = parseFloat(row.Price) || 0;
-    let finalPrice = (type === "魚" || type === "昆蟲") ? Math.floor(basePrice * 1.5) : basePrice;
+        const basePrice = parseFloat(row.Price) || 0;
+        let finalPrice = (type === "魚" || type === "昆蟲") ? Math.floor(basePrice * 1.5) : basePrice;
 
-    // --- 1. 地點處理：轉為陣列 ---
-    let locationList = [];
-    if (rawLocation) {
-      // 支援中英文逗號拆分，並去除多餘空白
-      locationList = rawLocation.toString().replace(/，/g, ',').split(',').map(l => l.trim());
-    } else {
-      locationList = ["全部"];
-    }
-
-    // --- 2. 季節處理：轉為陣列 ---
-    let seasonList = [];
-    if (rawSeasons) {
-      seasonList = rawSeasons.toString().replace(/，/g, ',').split(',').map(s => s.trim());
-    }
-
-    // --- 3. 時間處理 ---
-    let timeRanges = [];
-    if (row.Times) {
-      row.Times.toString().replace(/，/g, ',').split(',').forEach(group => {
-        const parts = group.trim().split('-');
-        if (parts.length === 2) {
-          timeRanges.push({ start: parseInt(parts[0]), end: parseInt(parts[1]) });
+        // 1. 地點處理
+        let locationList = [];
+        if (rawLocation) {
+          locationList = rawLocation.toString().replace(/，/g, ',').split(',').map(l => l.trim());
+        } else {
+          locationList = ["全部"];
         }
+
+        // 2. 季節處理
+        let seasonList = [];
+        if (rawSeasons) {
+          seasonList = rawSeasons.toString().replace(/，/g, ',').split(',').map(s => s.trim());
+        }
+
+        // 3. 時間處理
+        let timeRanges = [];
+        if (row.Times) {
+          row.Times.toString().replace(/，/g, ',').split(',').forEach(group => {
+            const parts = group.trim().split('-');
+            if (parts.length === 2) {
+              timeRanges.push({ start: parseInt(parts[0]), end: parseInt(parts[1]) });
+            }
+          });
+        } else {
+          timeRanges.push({ start: 0, end: 24 });
+        }
+
+        creatures[type][name] = {
+          price: finalPrice,
+          seasons: seasonList,
+          times: timeRanges,
+          location: locationList
+        };
       });
-    } else {
-      timeRanges.push({ start: 0, end: 24 });
     }
 
-    creatures[type][name] = {
-      price: finalPrice,
-      seasons: seasonList,
-      times: timeRanges,
-      location: locationList // 現在這裡是一個陣列了
-    };
-  });
-}
-
-
-    }  /* ====== 介面操作 ====== */
+    /* ====== 介面操作與更新函式 ====== */
     function initSeasonSelect() {
       const seasonSelect = document.getElementById("seasonSelect");
       ["春", "夏", "秋", "冬"].forEach(s => {
@@ -172,44 +162,44 @@
     }
 
     function updateCreatureOptions() {
-  const type = document.getElementById("typeSelect").value;
-  const season = document.getElementById("seasonSelect").value;
-  const location = document.getElementById("locationSelect").value;
-  const select = document.getElementById("creatureSelect");
-  
-  select.innerHTML = "";
-  if (!creatures[type]) return;
+      const type = document.getElementById("typeSelect").value;
+      const season = document.getElementById("seasonSelect").value;
+      const location = document.getElementById("locationSelect").value;
+      const select = document.getElementById("creatureSelect");
+      
+      select.innerHTML = "";
+      if (!creatures[type]) return;
 
-  for (let name in creatures[type]) {
-    const d = creatures[type][name];
-    let ok = true;
-    
-    // 季節篩選
-    if (d.seasons.length > 0 && !d.seasons.includes(season)) ok = false;
-    
-    // 時間篩選
-    if (d.times.length > 0 && !isNowInTimeRanges(d.times)) ok = false;
-    
-    // --- 4. 地點篩選：改為判斷是否包含 ---
-    if (location !== "全部") {
-      // 如果生物的地點清單不包含「全部」，且也不包含目前選擇的地點，則不顯示
-      const isIncluded = d.location.includes("全部") || d.location.includes(location);
-      if (!isIncluded) ok = false;
+      for (let name in creatures[type]) {
+        const d = creatures[type][name];
+        let ok = true;
+        
+        // 季節篩選
+        if (d.seasons.length > 0 && !d.seasons.includes(season)) ok = false;
+        
+        // 時間篩選
+        if (d.times.length > 0 && !isNowInTimeRanges(d.times)) ok = false;
+        
+        // 地點篩選 (包含判定)
+        if (location !== "全部") {
+          const isIncluded = d.location.includes("全部") || d.location.includes(location);
+          if (!isIncluded) ok = false;
+        }
+        
+        if (ok) {
+          const opt = document.createElement("option");
+          opt.value = name;
+          opt.textContent = `${name}（${d.price}）`;
+          select.appendChild(opt);
+        }
+      }
     }
-    
-    if (ok) {
-      const opt = document.createElement("option");
-      opt.value = name;
-      opt.textContent = `${name}（${d.price}）`;
-      select.appendChild(opt);
-    }
-  }
-}
 
     function addCreature() {
       const type = document.getElementById("typeSelect").value;
       const name = document.getElementById("creatureSelect").value;
       if (!name || !creatures[type][name]) return;
+      
       caught.push({
         name: name,
         price: creatures[type][name].price
@@ -225,6 +215,7 @@
         li.textContent = `${i.name}（${i.price}）`;
         const b = document.createElement("button");
         b.textContent = "❌";
+        b.style.color = "red";
         b.onclick = () => {
           caught.splice(idx, 1);
           render();
@@ -242,7 +233,7 @@
       }
       const min = Math.min(...caught.map(i => i.price));
       const list = caught.filter(i => i.price === min);
-      let html = "<h3>🔻 建議先賣（最低價）</h3><ul>";
+      let html = "<h3 style='color: #e74c3c;'>🔻 建議先賣（最低價）</h3><ul>";
       list.forEach(i => html += `<li>${i.name}（${i.price}）</li>`);
       html += "</ul>";
       result.innerHTML = html;
@@ -250,9 +241,4 @@
   </script>
 
 </body>
-
-</html>
-    
-  </body>
-  
 </html>
