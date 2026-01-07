@@ -158,7 +158,20 @@
   });
 }
 
-function updateCreatureOptions() {
+
+    }  /* ====== 介面操作 ====== */
+    function initSeasonSelect() {
+      const seasonSelect = document.getElementById("seasonSelect");
+      ["春", "夏", "秋", "冬"].forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s;
+        opt.textContent = s;
+        if (s === currentSeason) opt.selected = true;
+        seasonSelect.appendChild(opt);
+      });
+    }
+
+    function updateCreatureOptions() {
   const type = document.getElementById("typeSelect").value;
   const season = document.getElementById("seasonSelect").value;
   const location = document.getElementById("locationSelect").value;
@@ -192,39 +205,6 @@ function updateCreatureOptions() {
     }
   }
 }
-    }  /* ====== 介面操作 ====== */
-    function initSeasonSelect() {
-      const seasonSelect = document.getElementById("seasonSelect");
-      ["春", "夏", "秋", "冬"].forEach(s => {
-        const opt = document.createElement("option");
-        opt.value = s;
-        opt.textContent = s;
-        if (s === currentSeason) opt.selected = true;
-        seasonSelect.appendChild(opt);
-      });
-    }
-
-    function updateCreatureOptions() {
-      const type = document.getElementById("typeSelect").value;
-      const season = document.getElementById("seasonSelect").value;
-      const location = document.getElementById("locationSelect").value;
-      const select = document.getElementById("creatureSelect");
-      select.innerHTML = "";
-      if (!creatures[type]) return;
-      for (let name in creatures[type]) {
-        const d = creatures[type][name];
-        let ok = true;
-        if (d.seasons.length > 0 && !d.seasons.includes(season)) ok = false;
-        if (d.times.length > 0 && !isNowInTimeRanges(d.times)) ok = false;
-        if (d.location !== "全部" && location !== "全部" && d.location !== location) ok = false;
-        if (ok) {
-          const opt = document.createElement("option");
-          opt.value = name;
-          opt.textContent = `${name}（${d.price}）`;
-          select.appendChild(opt);
-        }
-      }
-    }
 
     function addCreature() {
       const type = document.getElementById("typeSelect").value;
