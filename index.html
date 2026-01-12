@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+  <meta charset="UTF-8">
+  <title>動物森友會 出島在外我該留誰</title>
+  <link rel="stylesheet" href="./style.css">
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <style>
+    /* 簡單優化一下選單樣式 */
+    select {
+      padding: 5px;
+      font-size: 16px;
+      border-radius: 4px;
+    }
+
+    input[type="number"] {
+      padding: 5px;
+      font-size: 16px;
+      width: 60px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>🎮動物森友會 出島在外我該留誰</h1>
+
+  <p>
+    目前時間：
+    <select id="hourSelect" onchange="updateCreatureOptions()"></select> 時
+  </p>
+
+  <p>
+    季節or月份：
+    <select id="dateSelect" onchange="updateCreatureOptions()">
+    </select>
+    ps.去外島建議用季節，月份看的是北半球的
+  </p>
+
+  <p>生物類型：
+    <select id="typeSelect" onchange="updateCreatureOptions()">
+      <option value="魚">魚(釣的)</option>
+      <option value="昆蟲">昆蟲(網子)</option>
+      <option value="海產">海產(潛水)</option>
+      <option value="水果">水果</option>
+      <option value="花卉">花卉(摘的)</option>
+    </select>
+  </p>
+
+  <p>地點（僅魚類）：
+    <select id="locationSelect" onchange="updateCreatureOptions()">
+      <option value="全部">全部</option>
+      <option value="河流">河流(包含懸崖、出海口)</option>
+      <option value="海洋">海洋(包含碼頭、出海口)</option>
+      <option value="池塘">池塘</option>
+    </select>
+  </p>
+
+  <p>選擇項目：
+    <select id="creatureSelect"></select>
+    <button onclick="addCreature()">加入背包</button>
+  </p>
+
+  <div class="box">
+    <h3>🎒 背包</h3>
+    <ul id="caughtList"></ul>
+  </div>
+
+  <div id="result" class="box"></div>
